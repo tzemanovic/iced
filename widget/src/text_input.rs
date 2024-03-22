@@ -595,13 +595,13 @@ pub fn update<'a, Message, Renderer>(
     event: Event,
     layout: Layout<'_>,
     cursor: mouse::Cursor,
-    renderer: &Renderer,
+    _renderer: &Renderer,
     clipboard: &mut dyn Clipboard,
     shell: &mut Shell<'_, Message>,
     value: &mut Value,
-    size: Option<Pixels>,
-    line_height: text::LineHeight,
-    font: Option<Renderer::Font>,
+    _size: Option<Pixels>,
+    _line_height: text::LineHeight,
+    _font: Option<Renderer::Font>,
     is_secure: bool,
     on_input: Option<&dyn Fn(String) -> Message>,
     on_paste: Option<&dyn Fn(String) -> Message>,
@@ -612,16 +612,17 @@ where
     Message: Clone,
     Renderer: text::Renderer,
 {
-    let update_cache = |state, value| {
-        replace_paragraph(
-            renderer,
-            state,
-            layout,
-            value,
-            font,
-            size,
-            line_height,
-        );
+    let update_cache = |_state, _value| {
+        // TEMP disabled, see <https://github.com/iced-rs/iced/issues/2318>
+        // replace_paragraph(
+        //     renderer,
+        //     state,
+        //     layout,
+        //     value,
+        //     font,
+        //     size,
+        //     line_height,
+        // );
     };
 
     match event {
@@ -1437,7 +1438,7 @@ fn find_cursor_position<P: text::Paragraph>(
     )
 }
 
-fn replace_paragraph<Renderer>(
+fn _replace_paragraph<Renderer>(
     renderer: &Renderer,
     state: &mut State<Renderer::Paragraph>,
     layout: Layout<'_>,
