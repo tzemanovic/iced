@@ -283,6 +283,8 @@ impl Pipeline {
                             4 => Sint32,
                         ),
                     }],
+                    compilation_options:
+                        wgpu::PipelineCompilationOptions::default(),
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
@@ -303,6 +305,8 @@ impl Pipeline {
                         }),
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
+                    compilation_options:
+                        wgpu::PipelineCompilationOptions::default(),
                 }),
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleList,

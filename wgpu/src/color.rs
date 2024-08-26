@@ -78,6 +78,8 @@ pub fn convert(
                 module: &shader,
                 entry_point: "vs_main",
                 buffers: &[],
+                compilation_options: wgpu::PipelineCompilationOptions::default(
+                ),
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -98,6 +100,8 @@ pub fn convert(
                     }),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(
+                ),
             }),
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
