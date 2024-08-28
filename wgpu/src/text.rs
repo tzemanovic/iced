@@ -9,12 +9,27 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::sync::Arc;
 
+pub struct Viewport(glyphon::Viewport);
+
+impl Viewport {
+    pub fn update(&mut self, queue: &wgpu::Queue, resolution: Size<u32>) {
+        self.0.update(
+            queue,
+            glyphon::Resolution {
+                width: resolution.width,
+                height: resolution.height,
+            },
+        );
+    }
+}
+
 #[allow(missing_debug_implementations)]
 pub struct Pipeline {
     renderers: Vec<glyphon::TextRenderer>,
     atlas: glyphon::TextAtlas,
     prepare_layer: usize,
     cache: RefCell<Cache>,
+    state: glyphon::Cache,
 }
 
 impl Pipeline {
@@ -23,11 +38,13 @@ impl Pipeline {
         queue: &wgpu::Queue,
         format: wgpu::TextureFormat,
     ) -> Self {
+        let state = glyphon::Cache::new(device);
         Pipeline {
             renderers: Vec::new(),
             atlas: glyphon::TextAtlas::with_color_mode(
                 device,
                 queue,
+                &state,
                 format,
                 if color::GAMMA_CORRECTION {
                     glyphon::ColorMode::Accurate
@@ -37,6 +54,7 @@ impl Pipeline {
             ),
             prepare_layer: 0,
             cache: RefCell::new(Cache::new()),
+            state,
         }
     }
 
@@ -53,10 +71,11 @@ impl Pipeline {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
+        viewport: &Viewport,
+        encoder: &mut wgpu::CommandEncoder,
         sections: &[Text<'_>],
         layer_bounds: Rectangle,
         scale_factor: f32,
-        target_size: Size<u32>,
     ) {
         if self.renderers.len() <= self.prepare_layer {
             self.renderers.push(glyphon::TextRenderer::new(
@@ -77,7 +96,7 @@ impl Pipeline {
             Paragraph(Paragraph),
             Editor(Editor),
             Cache(cache::KeyHash),
-            Raw(Arc<glyphon::Buffer>),
+            Raw(Arc<iced_graphics::text::cosmic_text::Buffer>),
         }
 
         let allocations: Vec<_> = sections
@@ -210,7 +229,10 @@ impl Pipeline {
                             buffer.as_ref(),
                             Rectangle::new(
                                 raw.position,
-                                Size::new(width, height),
+                                Size::new(
+                                    width.unwrap_or(raw.clip_bounds.width),
+                                    height.unwrap_or(raw.clip_bounds.height),
+                                ),
                             ),
                             alignment::Horizontal::Left,
                             alignment::Vertical::Top,
@@ -262,12 +284,10 @@ impl Pipeline {
         let result = renderer.prepare(
             device,
             queue,
+            encoder,
             font_system,
             &mut self.atlas,
-            glyphon::Resolution {
-                width: target_size.width,
-                height: target_size.height,
-            },
+            &viewport.0,
             text_areas,
             &mut glyphon::SwashCache::new(),
         );
@@ -286,6 +306,7 @@ impl Pipeline {
 
     pub fn render<'a>(
         &'a self,
+        viewport: &'a Viewport,
         layer: usize,
         bounds: Rectangle<u32>,
         render_pass: &mut wgpu::RenderPass<'a>,
@@ -300,8 +321,12 @@ impl Pipeline {
         );
 
         renderer
-            .render(&self.atlas, render_pass)
+            .render(&self.atlas, &viewport.0, render_pass)
             .expect("Render text");
+    }
+
+    pub fn create_viewport(&self, device: &wgpu::Device) -> Viewport {
+        Viewport(glyphon::Viewport::new(device, &self.state))
     }
 
     pub fn end_frame(&mut self) {

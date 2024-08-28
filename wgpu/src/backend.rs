@@ -27,6 +27,7 @@ pub struct Backend {
     text_pipeline: text::Pipeline,
     triangle_pipeline: triangle::Pipeline,
     pipeline_storage: pipeline::Storage,
+    text_viewport: text::Viewport,
     #[cfg(any(feature = "image", feature = "svg"))]
     image_pipeline: image::Pipeline,
 }
@@ -43,6 +44,7 @@ impl Backend {
         let quad_pipeline = quad::Pipeline::new(device, format);
         let triangle_pipeline =
             triangle::Pipeline::new(device, format, settings.antialiasing);
+        let text_viewport = text_pipeline.create_viewport(device);
 
         #[cfg(any(feature = "image", feature = "svg"))]
         let image_pipeline = image::Pipeline::new(device, format);
@@ -52,6 +54,7 @@ impl Backend {
             text_pipeline,
             triangle_pipeline,
             pipeline_storage: pipeline::Storage::default(),
+            text_viewport,
 
             #[cfg(any(feature = "image", feature = "svg"))]
             image_pipeline,
@@ -93,6 +96,7 @@ impl Backend {
             queue,
             format,
             encoder,
+            viewport,
             scale_factor,
             target_size,
             transformation,
@@ -122,12 +126,15 @@ impl Backend {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         format: wgpu::TextureFormat,
-        _encoder: &mut wgpu::CommandEncoder,
+        encoder: &mut wgpu::CommandEncoder,
+        viewport: &Viewport,
         scale_factor: f32,
         target_size: Size<u32>,
         transformation: Transformation,
         layers: &[Layer<'_>],
     ) {
+        self.text_viewport.update(queue, viewport.physical_size());
+
         for layer in layers {
             let bounds = (layer.bounds * scale_factor).snap();
 
@@ -166,7 +173,7 @@ impl Backend {
                     self.image_pipeline.prepare(
                         device,
                         queue,
-                        _encoder,
+                        encoder,
                         &layer.images,
                         scaled,
                         scale_factor,
@@ -178,10 +185,11 @@ impl Backend {
                 self.text_pipeline.prepare(
                     device,
                     queue,
+                    &self.text_viewport,
+                    encoder,
                     &layer.text,
                     layer.bounds,
                     scale_factor,
-                    target_size,
                 );
             }
 
@@ -316,8 +324,12 @@ impl Backend {
             }
 
             if !layer.text.is_empty() {
-                self.text_pipeline
-                    .render(text_layer, bounds, &mut render_pass);
+                self.text_pipeline.render(
+                    &self.text_viewport,
+                    text_layer,
+                    bounds,
+                    &mut render_pass,
+                );
 
                 text_layer += 1;
             }

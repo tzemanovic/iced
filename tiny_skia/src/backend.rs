@@ -541,7 +541,7 @@ impl Backend {
                 buffer,
                 position,
                 color,
-                clip_bounds: _, // TODO: Support text clip bounds
+                clip_bounds, // TODO: Support text clip bounds
             }) => {
                 let Some(buffer) = buffer.upgrade() else {
                     return;
@@ -549,10 +549,14 @@ impl Backend {
 
                 let (width, height) = buffer.size();
 
-                let physical_bounds =
-                    Rectangle::new(*position, Size::new(width, height))
-                        * transformation
-                        * scale_factor;
+                let physical_bounds = Rectangle::new(
+                    *position,
+                    Size::new(
+                        width.unwrap_or(clip_bounds.width),
+                        height.unwrap_or(clip_bounds.height),
+                    ),
+                ) * transformation
+                    * scale_factor;
 
                 if !clip_bounds.intersects(&physical_bounds) {
                     return;

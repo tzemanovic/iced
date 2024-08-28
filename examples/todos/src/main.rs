@@ -25,6 +25,7 @@ pub fn main() -> iced::Result {
             size: Size::new(500.0, 800.0),
             ..window::Settings::default()
         },
+        antialiasing: true,
         ..Settings::default()
     })
 }

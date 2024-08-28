@@ -1,8 +1,7 @@
 use crate::core::svg::{Data, Handle};
 use crate::core::{Color, Rectangle, Size};
-use crate::graphics::text;
 
-use resvg::usvg::{self, TreeTextToPath};
+use resvg::usvg;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use std::cell::RefCell;
@@ -73,12 +72,10 @@ struct RasterKey {
 
 impl Cache {
     fn load(&mut self, handle: &Handle) -> Option<&usvg::Tree> {
-        use usvg::TreeParsing;
-
         let id = handle.id();
 
         if let hash_map::Entry::Vacant(entry) = self.trees.entry(id) {
-            let mut svg = match handle.data() {
+            let svg = match handle.data() {
                 Data::Path(path) => {
                     fs::read_to_string(path).ok().and_then(|contents| {
                         usvg::Tree::from_str(
@@ -93,15 +90,6 @@ impl Cache {
                 }
             };
 
-            if let Some(svg) = &mut svg {
-                if svg.has_text_nodes() {
-                    let mut font_system =
-                        text::font_system().write().expect("Write font system");
-
-                    svg.convert_text(font_system.raw().db_mut());
-                }
-            }
-
             let _ = entry.insert(svg);
         }
 
@@ -111,11 +99,9 @@ impl Cache {
 
     fn viewport_dimensions(&mut self, handle: &Handle) -> Option<Size<u32>> {
         let tree = self.load(handle)?;
+        let size = tree.size();
 
-        Some(Size::new(
-            tree.size.width() as u32,
-            tree.size.height() as u32,
-        ))
+        Some(Size::new(size.width() as u32, size.height() as u32))
     }
 
     fn draw(
@@ -140,7 +126,7 @@ impl Cache {
 
             let mut image = tiny_skia::Pixmap::new(size.width, size.height)?;
 
-            let tree_size = tree.size.to_int_size();
+            let tree_size = tree.size().to_int_size();
 
             let target_size = if size.width > size.height {
                 tree_size.scale_to_width(size.width)
@@ -160,7 +146,7 @@ impl Cache {
                 tiny_skia::Transform::default()
             };
 
-            resvg::Tree::from_usvg(tree).render(transform, &mut image.as_mut());
+            resvg::render(tree, transform, &mut image.as_mut());
 
             if let Some([r, g, b, _]) = key.color {
                 // Apply color filter
